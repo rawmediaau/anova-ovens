@@ -103,7 +103,6 @@ Viewing the camera starts the oven's live stream over the app login (`CMD_APO_ST
 ## Known Issues
 
 - **First live-stream start after a restart may be refused.** Right after Home Assistant starts, Anova sometimes answers the first `CMD_APO_START_LIVE_STREAM` with `unauthorized`. The camera recovers on the next request. Likely cause: the app-login connection sends its command as soon as the socket opens, while the Anova app waits briefly first.
-- **Shutdown warning.** On restart, Home Assistant may log that the integration's WebSocket task "was still running after final writes shutdown stage". The integration does not cancel its Anova connection when Home Assistant stops. It is harmless (this predates the v2 changes).
 
 ## Installation
 

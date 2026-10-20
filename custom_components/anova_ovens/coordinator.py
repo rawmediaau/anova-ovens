@@ -145,6 +145,8 @@ class AnovaOvenCoordinator(DataUpdateCoordinator):
         self.websocket = None
         self.devices: dict[str, dict[str, Any]] = {}
         self._running = False
+        # Set once the entry unloads; a start still pending must not run then
+        self._stopped = False
         self._listen_task = None
         self._ssl_context: ssl.SSLContext | None = None
         # Server RESPONSE messages, keyed by the requestId we sent
@@ -182,7 +184,7 @@ class AnovaOvenCoordinator(DataUpdateCoordinator):
 
     async def start_websocket(self) -> None:
         """Start the WebSocket connection and listener."""
-        if self._running:
+        if self._running or self._stopped:
             return
 
         try:
@@ -190,12 +192,17 @@ class AnovaOvenCoordinator(DataUpdateCoordinator):
                 self._ssl_context = await self._create_ssl_context()
 
             self._running = True
-            self._listen_task = self.hass.async_create_task(self._listen_websocket())
+            # A background task: Home Assistant cancels it on shutdown
+            # instead of waiting for it (and warning that it still runs)
+            self._listen_task = self.hass.async_create_background_task(
+                self._listen_websocket(), f"{DOMAIN} websocket listener"
+            )
         except Exception:
             _LOGGER.error("Failed to start WebSocket", exc_info=True)
 
     async def stop_websocket(self) -> None:
         """Stop the WebSocket connection."""
+        self._stopped = True
         self._running = False
         if self._listen_task:
             self._listen_task.cancel()
