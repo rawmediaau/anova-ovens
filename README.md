@@ -57,6 +57,10 @@ Anova Precision Cooker (APC sous vide circulator). That's a different product wi
 
 Lamp on/off.
 
+### Number (1, v2 ovens with the app login)
+
+**Cook timer** (minutes): sets the timer on the running cook without restarting it (`CMD_APO_SET_TIMER`). Available only while cooking.
+
 ## Climate Entity Behavior
 
 The climate entity is intentionally simple.
@@ -71,7 +75,9 @@ The climate entity is intentionally simple.
 | Fan speed | 100% | 100% |
 | Vent | Closed | Closed |
 
-**Oven cooking (v2 ovens):** changing the target temperature or preset resends the running cook from its active stage with only the bulb mode and setpoint changed. Steam, fan, heating elements, rack position and later stages are kept, and a running stage timer continues with the time it had left. Anova's personal-token API has no "adjust current cook" command, so the cook gets a new cook ID.
+**Oven cooking (v2 ovens, with the app login):** changing the target temperature (same preset) changes the setpoint of the running cook in place (`CMD_APO_SET_TEMPERATURE_BULBS`): same cook, timer and stages.
+
+**Oven cooking (v2 ovens, otherwise):** changing the preset, or the temperature without the app login, resends the running cook from its active stage with only the bulb mode and setpoint changed. Steam, fan, heating elements, rack position and later stages are kept, and a running stage timer continues with the time it had left. Anova's personal-token API has no "adjust current cook" command, so the cook gets a new cook ID.
 
 **Oven cooking (v1 ovens):** a temperature change replaces the running cook with the simple cook above.
 

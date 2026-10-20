@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CMD_APO_SET_TEMPERATURE_BULBS,
     CMD_APO_START,
     CMD_APO_STOP,
     DEFAULT_FAN_SPEED,
@@ -288,6 +289,11 @@ class AnovaOvenClimate(AnovaOvenEntity, ClimateEntity):
 
         payload = None
         if device_type == OVEN_TYPE_V2 and self.hvac_mode == HVACMode.HEAT:
+            if mode == self.preset_mode and await self._async_set_setpoint_in_place(
+                temperature, mode
+            ):
+                await self.coordinator.async_request_refresh()
+                return
             payload = self._modify_running_cook_payload(temperature, mode)
         if payload is None:
             payload = self._create_cook_payload(temperature, device_type, mode)
@@ -299,6 +305,30 @@ class AnovaOvenClimate(AnovaOvenEntity, ClimateEntity):
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error("Failed to start oven: %s", err)
+
+    async def _async_set_setpoint_in_place(self, temperature: float, mode: str) -> bool:
+        """Change the running cook's setpoint without restarting it.
+
+        Needs the app login (the token cannot send this command). Keeps the
+        cook, its timer and stages. Returns False to fall back to resending
+        the cook.
+        """
+        if self.coordinator.app_session is None:
+            return False
+        try:
+            response = await self.coordinator.send_app_command(
+                self._device_id,
+                CMD_APO_SET_TEMPERATURE_BULBS,
+                {"mode": mode, mode: {"setpoint": {"celsius": temperature}}},
+            )
+        except Exception as err:
+            _LOGGER.debug("In-place setpoint change failed, resending cook: %s", err)
+            return False
+        status = (response.get("payload") or {}).get("status")
+        if status != "ok":
+            _LOGGER.debug("In-place setpoint change refused (%s), resending cook", status)
+            return False
+        return True
 
     def _modify_running_cook_payload(
         self, temperature: float, mode: str
@@ -316,6 +346,8 @@ class AnovaOvenClimate(AnovaOvenEntity, ClimateEntity):
 
         for stage in stages:
             stage["id"] = str(uuid.uuid4())
+            # Anova refuses stages without an exit; empty means until stopped
+            stage.setdefault("exit", {"conditions": {"and": {}}})
 
         action = stages[0]["do"]
         action["temperatureBulbs"] = {
@@ -361,8 +393,10 @@ class AnovaOvenClimate(AnovaOvenEntity, ClimateEntity):
         humidity = 100 if mode == PRESET_WET else DEFAULT_HUMIDITY
 
         if device_type == OVEN_TYPE_V2:
-            # v2 stages wrap the node settings in "do"; no "exit" means the
-            # stage runs until stopped.
+            # v2 stages wrap the node settings in "do". An exit with no
+            # conditions runs the stage until stopped, as the Anova app sends
+            # for an untimed stage; leaving "exit" out is refused as
+            # "invalid command".
             return {
                 "stages": [
                     {
@@ -385,6 +419,7 @@ class AnovaOvenClimate(AnovaOvenEntity, ClimateEntity):
                                 "relativeHumidity": {"setpoint": humidity},
                             },
                         },
+                        "exit": {"conditions": {"and": {}}},
                         "title": "Cook",
                         "description": "Home Assistant Cook",
                         "rackPosition": 3,
