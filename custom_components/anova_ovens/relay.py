@@ -53,7 +53,8 @@ class CameraRelay:
                     method, f"{self._api}/{endpoint}", json=json
                 ) as resp:
                     body = await resp.json(content_type=None)
-        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        # RuntimeError: HA's shared session is already closed (shutting down)
+        except (aiohttp.ClientError, TimeoutError, ValueError, RuntimeError) as err:
             raise RelayError(f"camera relay at {self.host} not reachable ({err!r})") from err
         if resp.status >= 400:
             raise RelayError(
