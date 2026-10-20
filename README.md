@@ -79,7 +79,7 @@ The climate entity is intentionally simple.
 
 ## Anova App Login (optional, for the lamp and camera)
 
-Anova refuses the lamp command (`unauthorized`) when it is sent with a Personal Access Token. Verified on an oven_v2: with the login, `CMD_APO_SET_LAMP` turns the oven light on and off, and the oven reports it as `doorLamp`. To control the lamp, open the integration's **Configure** dialog and sign in with your Anova app email and password. The integration then sends lamp commands over a separate connection that authenticates the way the Anova app does. Without the login, the lamp switch behaves as before.
+Anova refuses the lamp command (`unauthorized`) when it is sent with a Personal Access Token. Verified on an oven_v2: with the login, `CMD_APO_SET_LAMP` turns the oven light on and off, and the oven reports it as `doorLamp`. To control the lamp, enter your Anova app email and password when adding the integration, or later under **Configure > Anova app login**. The integration then sends lamp commands over a separate connection that authenticates the way the Anova app does. Without the login, the lamp switch behaves as before.
 
 - The login must be an email and password. If you sign in to Anova with Google, Facebook or Apple, first set a password for the same email on the [Anova password reset page](https://anovaculinary.io/ali/password-reset), then use that password here.
 - The password is not stored; only the sign-in's refresh token is kept.
@@ -119,11 +119,11 @@ Copy `custom_components/anova_ovens/` into your HA config's `custom_components/`
 
 ## Configuration
 
-**Settings > Devices & Services > Add Integration > Anova Ovens**, then paste your Personal Access Token (starts with `anova-`).
+**Settings > Devices & Services > Add Integration > Anova Ovens**, then paste your Personal Access Token (starts with `anova-`). The same form optionally takes your Anova app email and password, which the lamp and camera need on v2 ovens.
 
 Optional extras, from the integration's **Configure** menu:
 
-- **Anova app login**: needed for the lamp and the camera on v2 ovens (see [Anova App Login](#anova-app-login-optional-for-the-lamp-and-camera)).
+- **Anova app login**: add, change or remove the app login later (see [Anova App Login](#anova-app-login-optional-for-the-lamp-and-camera)).
 - **Oven camera**: the camera relay's hostname and the live view option (see [Camera](#camera-v2-ovens-with-the-app-login-and-the-camera-relay)).
 
 Tokens are documented in Anova's [authentication guide](https://developer.anovaculinary.com/docs/devices/wifi/authentication). Max 10 PATs per account. WebSocket connections time out after 30 minutes of inactivity; the integration auto-reconnects.

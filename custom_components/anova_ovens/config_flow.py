@@ -36,6 +36,9 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_TOKEN): str,
+        # Optional Anova app login (lamp and camera); also settable later
+        vol.Optional(CONF_APP_EMAIL, default=""): str,
+        vol.Optional(CONF_APP_PASSWORD, default=""): str,
     }
 )
 
@@ -113,28 +116,52 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            email = user_input.get(CONF_APP_EMAIL, "").strip()
+            password = user_input.get(CONF_APP_PASSWORD, "")
+            refresh_token: str | None = None
             try:
                 info = await validate_token(self.hass, user_input)
+                if email:
+                    if not password:
+                        raise AppPasswordRequired
+                    refresh_token = await async_sign_in(
+                        async_get_clientsession(self.hass), email, password
+                    )
             except InvalidToken:
                 errors["base"] = "invalid_token"
             except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except AppPasswordRequired:
+                errors["base"] = "app_password_required"
+            except AppAuthError:
+                errors["base"] = "app_invalid_auth"
+            except AppConnectionError:
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                user_input[CONF_TOKEN] = user_input[CONF_TOKEN].strip()
-                token_hash = hashlib.sha256(
-                    user_input[CONF_TOKEN].encode()
-                ).hexdigest()[:16]
+                token = user_input[CONF_TOKEN].strip()
+                token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
                 await self.async_set_unique_id(token_hash)
                 self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(title=info["title"], data=user_input)
+                # The password is never stored, only the sign-in's refresh token
+                data: dict[str, Any] = {CONF_TOKEN: token}
+                options: dict[str, Any] = {}
+                if refresh_token:
+                    data[CONF_APP_REFRESH_TOKEN] = refresh_token
+                    options[CONF_APP_EMAIL] = email
+                return self.async_create_entry(
+                    title=info["title"], data=data, options=options
+                )
 
-        return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        # Keep what was typed (except the password) when showing errors
+        schema = self.add_suggested_values_to_schema(
+            STEP_USER_DATA_SCHEMA,
+            {k: v for k, v in (user_input or {}).items() if k != CONF_APP_PASSWORD},
         )
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
@@ -242,6 +269,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             }
         )
         return self.async_show_form(step_id="camera", data_schema=schema, errors=errors)
+
+
+class AppPasswordRequired(HomeAssistantError):
+    """Error to indicate an app email was given without a password."""
 
 
 class InvalidToken(HomeAssistantError):

@@ -2,10 +2,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "Anova Precision Oven",
-        "description": "Enter your Anova Personal Access Token",
+        "title": "Anova Ovens",
+        "description": "Enter your Anova Personal Access Token (starts with `anova-`).\n\n**Optional:** your Anova app email and password, needed for the lamp and the camera on v2 ovens. Your password is not stored; only the sign-in's refresh token is kept. If you sign in to Anova with Google, Facebook or Apple, first set a password on the [Anova password reset page](https://anovaculinary.io/ali/password-reset). You can also add or change the login later under **Configure**.",
         "data": {
-          "token": "Personal Access Token"
+          "token": "Personal Access Token",
+          "app_email": "Anova email (optional)",
+          "app_password": "Anova password (optional)"
         }
       }
     },
