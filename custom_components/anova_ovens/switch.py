@@ -9,7 +9,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CMD_APO_SET_LAMP
+from .const import CMD_APO_SET_HEATING_ELEMENTS, CMD_APO_SET_LAMP, CMD_APO_SET_VENT
+from .cook_control import AnovaCookControl, cook_controls_supported
 from .coordinator import AnovaOvenConfigEntry, AnovaOvenCoordinator
 from .entity import AnovaOvenEntity
 
@@ -31,7 +32,14 @@ async def async_setup_entry(
             return
 
         known_devices.add(device_id)
-        async_add_entities([AnovaOvenLampSwitch(coordinator, device_id)])
+        entities: list[SwitchEntity] = [AnovaOvenLampSwitch(coordinator, device_id)]
+        if cook_controls_supported(coordinator, device_id):
+            entities.append(AnovaOvenVentSwitch(coordinator, device_id))
+            entities.extend(
+                AnovaOvenElementSwitch(coordinator, device_id, element)
+                for element in HEATING_ELEMENTS
+            )
+        async_add_entities(entities)
         _LOGGER.debug("Created switch entities for device %s", device_id)
 
     for device_id in coordinator.devices:
@@ -105,3 +113,99 @@ class AnovaOvenLampSwitch(AnovaOvenEntity, SwitchEntity):
             _LOGGER.error(
                 "Failed to turn %s lamp: %s", "on" if on else "off", err
             )
+
+
+HEATING_ELEMENTS = ("top", "bottom", "rear")
+
+
+class AnovaOvenVentSwitch(AnovaCookControl, SwitchEntity):
+    """Exhaust vent of the running cook, on = open (CMD_APO_SET_VENT)."""
+
+    _attr_icon = "mdi:hvac"
+
+    def __init__(self, coordinator: AnovaOvenCoordinator, device_id: str) -> None:
+        """Initialize the vent switch."""
+        super().__init__(coordinator, device_id)
+        self._attr_unique_id = f"{device_id}_vent_control"
+        self._attr_name = "Vent open"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the running stage has the vent open."""
+        for source in (self._stage_do, self._nodes):
+            state = source.get("exhaustVent", {}).get("state")
+            if state in ("open", "closed"):
+                return state == "open"
+        return None
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Open the vent."""
+        await self._async_set(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Close the vent."""
+        await self._async_set(False)
+
+    async def _async_set(self, open_: bool) -> None:
+        await self._async_send(
+            CMD_APO_SET_VENT,
+            {"open": open_},
+            {"exhaustVent": {"state": "open" if open_ else "closed"}},
+        )
+
+
+class AnovaOvenElementSwitch(AnovaCookControl, SwitchEntity):
+    """One heating element of the running cook (CMD_APO_SET_HEATING_ELEMENTS).
+
+    The command sets all three elements, so the others are sent unchanged.
+    The last element that is on cannot be turned off.
+    """
+
+    _attr_icon = "mdi:heating-coil"
+
+    def __init__(
+        self, coordinator: AnovaOvenCoordinator, device_id: str, element: str
+    ) -> None:
+        """Initialize the element switch."""
+        super().__init__(coordinator, device_id)
+        self._element = element
+        self._attr_unique_id = f"{device_id}_{element}_element"
+        self._attr_name = f"{element.capitalize()} element"
+
+    def _elements(self) -> dict[str, bool] | None:
+        """On/off of each element in the running stage (or the live node)."""
+        for source in (self._stage_do, self._nodes):
+            elements = source.get("heatingElements")
+            if isinstance(elements, dict) and all(
+                isinstance(elements.get(name), dict) for name in HEATING_ELEMENTS
+            ):
+                return {
+                    name: bool(elements[name].get("on")) for name in HEATING_ELEMENTS
+                }
+        return None
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if this element is on in the running stage."""
+        elements = self._elements()
+        return None if elements is None else elements[self._element]
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the element on."""
+        await self._async_set(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the element off."""
+        await self._async_set(False)
+
+    async def _async_set(self, on: bool) -> None:
+        elements = self._elements()
+        if elements is None:
+            raise HomeAssistantError("The running cook's heating elements are unknown")
+        elements[self._element] = on
+        if not any(elements.values()):
+            raise HomeAssistantError("At least one heating element must stay on")
+        settings = {name: {"on": value} for name, value in elements.items()}
+        await self._async_send(
+            CMD_APO_SET_HEATING_ELEMENTS, settings, {"heatingElements": settings}
+        )
