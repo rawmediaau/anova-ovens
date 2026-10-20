@@ -1,0 +1,45 @@
+# MediaMTX config for the Anova camera relay add-on.
+#
+# The oven streams VP8 over WebRTC (WHEP) from Cloudflare, which Home
+# Assistant's go2rtc cannot receive. MediaMTX pulls it and re-serves it as
+# RTSP. The integration creates the oven path through the API with the
+# oven's WHEP URL; nothing is configured here per oven.
+#
+# Neither port is published on the host: only Home Assistant and other
+# apps on the internal Supervisor network (172.30.32.0/23) can reach them.
+
+logLevel: info
+readTimeout: 10s
+writeTimeout: 10s
+
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: ["172.30.32.0/23", "127.0.0.1", "::1"]
+    permissions:
+      - action: read
+      - action: api
+
+api: true
+apiAddress: :9997
+metrics: false
+pprof: false
+playback: false
+
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: :8554
+rtmp: false
+hls: false
+webrtc: false
+srt: false
+moq: false
+
+pathDefaults:
+  # Only pull from Cloudflare while something is reading the stream
+  sourceOnDemand: true
+  sourceOnDemandStartTimeout: 15s
+  sourceOnDemandCloseAfter: 30s
+
+paths: {}

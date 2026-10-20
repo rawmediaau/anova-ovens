@@ -1,0 +1,80 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Anova Precision Oven",
+        "description": "Enter your Anova Personal Access Token",
+        "data": {
+          "token": "Personal Access Token"
+        }
+      }
+    },
+    "error": {
+      "invalid_token": "Invalid token format. Token must start with 'anova-'",
+      "cannot_connect": "Failed to connect to Anova API",
+      "unknown": "Unexpected error occurred",
+      "app_invalid_auth": "Anova rejected the email or password. If you use Google, Facebook or Apple sign-in, set a password first (see the link above).",
+      "app_password_required": "Enter your Anova password"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "services": {
+    "send_command": {
+      "name": "Send raw command",
+      "description": "Advanced: send a CMD_APO_* command to the oven and return Anova's reply. Intended for testing undocumented commands; it can start or stop cooks.",
+      "fields": {
+        "command": {
+          "name": "Command",
+          "description": "Command name, e.g. CMD_APO_STOP."
+        },
+        "payload": {
+          "name": "Payload",
+          "description": "Inner command payload, if the command takes one."
+        },
+        "cooker_id": {
+          "name": "Cooker ID",
+          "description": "Only needed when more than one oven is set up."
+        },
+        "use_app_login": {
+          "name": "Use app login",
+          "description": "Send over the Anova app login instead of the Personal Access Token."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Anova Precision Oven options",
+        "menu_options": {
+          "app_login": "Anova app login (lamp and camera)",
+          "camera": "Oven camera"
+        }
+      },
+      "app_login": {
+        "title": "Anova app login (optional)",
+        "description": "Your Personal Access Token is not allowed to control the lamp or the oven camera. Signing in with your Anova app email and password lets Home Assistant control the lamp and the oven camera (v2 ovens) the way the app does.\n\nThis needs an email and password login. If you sign in to Anova with Google, Facebook or Apple, first set a password on the [Anova password reset page](https://anovaculinary.io/ali/password-reset) using your account's email, then enter it here.\n\nYour password is not stored. This is unofficial and may stop working if Anova changes its app. Leave the email empty to remove the login.",
+        "data": {
+          "app_email": "Anova email",
+          "app_password": "Anova password"
+        }
+      },
+      "camera": {
+        "title": "Oven camera (optional)",
+        "description": "The oven's camera works on v2 ovens while cooking, and needs the app login. The oven streams video in a format Home Assistant can't read directly, so the camera also needs the **Anova Camera Relay** app (add-on) from this repository: add `https://github.com/rawmediaau/anova-ovens` as an app repository, install and start Anova Camera Relay, then enter its hostname below (shown on the app's Info page, for example `abcd1234-anova-camera-relay`).\n\nThe relay only pulls video from Anova while something is reading it, and snapshots are cheap. **Live view** converts the video to H264 while someone is watching, which uses noticeably more CPU; leave it off for snapshots only.\n\nLeave the relay empty to turn the camera off.",
+        "data": {
+          "camera_relay": "Camera relay hostname",
+          "camera_live_view": "Live view (uses more CPU while watching)"
+        }
+      }
+    },
+    "error": {
+      "app_invalid_auth": "Anova rejected the email or password. If you use Google, Facebook or Apple sign-in, set a password first (see the link above).",
+      "app_password_required": "Enter your Anova password",
+      "cannot_connect": "Failed to connect to Anova",
+      "relay_cannot_connect": "Could not reach the camera relay. Check that the Anova Camera Relay app is running and the hostname is right."
+    }
+  }
+}

@@ -1,0 +1,20 @@
+send_command:
+  fields:
+    command:
+      required: true
+      example: CMD_APO_STOP
+      selector:
+        text:
+    payload:
+      required: false
+      selector:
+        object:
+    cooker_id:
+      required: false
+      selector:
+        text:
+    use_app_login:
+      required: false
+      default: false
+      selector:
+        boolean:
